@@ -27,8 +27,10 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -74,9 +76,11 @@ public class CheckpointFile<T> {
 
     public void write(Collection<T> entries) throws IOException {
         synchronized (lock) {
+            final OpenOption[] options = {StandardOpenOption.WRITE,
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.SPARSE};
+
             // write to temp file and then swap with the existing file
-            try (FileOutputStream fileOutputStream = new FileOutputStream(tempPath.toFile());
-                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8))) {
+            try (BufferedWriter writer = Files.newBufferedWriter(tempPath, StandardCharsets.UTF_8, options)) {
                 // Write the version
                 writer.write(Integer.toString(version));
                 writer.newLine();
@@ -92,7 +96,7 @@ public class CheckpointFile<T> {
                 }
 
                 writer.flush();
-                fileOutputStream.getFD().sync();
+                writer.close();
             }
 
             Utils.atomicMoveWithFallback(tempPath, absolutePath);
